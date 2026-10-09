@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: forbid-restricted-data-files
+        name: Forbid restricted volumetric, mesh, and model weight binaries
+        entry: >
+          (?i)\.(raw|ply|mhd|mha|nii|nii\.gz|h5|hdf5|keras|pt|pth|ckpt|onnx|bin)$
+        language: pygrep
+        types: [file]
+        stages: [commit]

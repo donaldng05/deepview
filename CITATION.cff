@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software or reference this study, please cite it as below."
+authors:
+  - family-names: "Nguyen"
+    given-names: "Donald"
+title: "DeepView: Volumetric to Surface Mesh Estimation Study for Industrial NDT"
+version: 0.2.0
+date-released: 2026-10-08
+url: "https://github.com/donaldng05/deepview"
+keywords:
+  - "3D vision"
+  - "ultrasound"
+  - "non-destructive testing"
+  - "surface reconstruction"
+  - "point clouds"
+  - "volumetric imaging"

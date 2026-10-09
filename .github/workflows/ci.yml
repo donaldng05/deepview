@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint-and-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install lint dependencies
+        run: uv sync --all-extras
+
+      - name: Run Ruff format check
+        run: uv run ruff format --check src tests scripts
+
+      - name: Run Ruff lint check
+        run: uv run ruff check src tests scripts
+
+      - name: Run static type check
+        run: uv run mypy src
+
+      - name: Check for restricted binary files in git tree
+        run: |
+          FORBIDDEN=$(git ls-files | grep -E -i '\.(raw|ply|mhd|mha|nii|nii\.gz|h5|hdf5|keras|pt|pth|ckpt|onnx|bin)$' || true)
+          if [ -n "$FORBIDDEN" ]; then
+            echo "Error: Found forbidden restricted data or weight files tracked in git:"
+            echo "$FORBIDDEN"
+            exit 1
+          fi
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies from uv.lock
+        run: uv sync --all-extras
+
+      - name: Run test suite
+        run: uv run pytest
