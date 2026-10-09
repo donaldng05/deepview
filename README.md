@@ -1,97 +1,106 @@
-# DeepView Competition - 1st Place
-# Volumetric to Surface Mesh Estimation
+# DeepView: Volumetric to Surface Mesh Estimation for Industrial NDT
 
-## Problem Statement
-This project aims to develop a deep learning model that estimates the surface mesh of a given volumetric ultrasound image. Each volume is a separate scan containing a piece (or connected pieces) of steel pipe, with or without an object inside the pipe, and with or without debris/dirt at the bottom of the pipe. The solution must address the challenge of mapping raw 3D volumetric data to structured surface meshes for applications such as industrial inspection, medical imaging, and 3D modeling.
+[![CI](https://github.com/donaldng05/deepview/actions/workflows/ci.yml/badge.svg)](https://github.com/donaldng05/deepview/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python: 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-### Dataset Overview
-- **Training Dataset**:
-  - **Volumes**: 89 raw volumetric ultrasound images stored as `.raw` files.
-  - **Meshes**: 5 reference 3D meshes in `.ply` format corresponding to the volumetric scans `001-005`.
-- **Testing Dataset**:
-  - **Volumes**: 10 raw volumetric ultrasound images.
-  - **Meshes**: 10 reference 3D meshes.
+DeepView is a computer vision research study focused on estimating 3D surface geometry from volumetric ultrasound data in Non-Destructive Testing (NDT) of industrial piping.
 
-### Raw Volumetric Image Metadata
-- **Origin**: (0, 0, 0)
-- **Spacing**: (0.49479, 0.49479, 0.3125)
-- **Data Type**: Unsigned short integer
-- **Volume Dimension**: (768, 768, 1280)
-
-### Visualization
-We recommend using [ParaView](https://www.paraview.org) (version 5.9.1) for visualizing volumetric data and meshes. Proper alignment can be achieved using the provided metadata. Some suggestions to visualize the data:
-- Data Scalar Type: unsigned short
-- Data Byte Order: LittleEndian
-- Data Extent: 768 x 768 x 1280
+The project originated as an entry in the UBC Data Science Club Hackathon, centered on the **CVPR 2023 Deep Learning in Ultrasound Image Analysis Workshop Challenge** (provided by DarkVision Technologies). It has been restructured as a rigorous, reproducible benchmark investigating why direct mesh coordinate regression fails on volumetric data and how segmentation-based approaches (such as SMRVIS) restore geometric fidelity.
 
 ---
 
-## Project Workflow
+## 🎯 Objectives & Research Questions
 
-### 1. Preprocessing
-- **Volumes**:
-  - Normalize intensity values to the range [0, 1].
-  - Resize volumes to a uniform shape (e.g., 128x128x128 in this case for optimization).
-- **Meshes**:
-  - Center vertex coordinates.
-  - Normalize mesh dimensions to fit within a unit sphere.
-  - Pad or trim vertices to ensure a consistent number (e.g., 10,000 vertices).
-
-### 2. Model Architecture
-The `VolumetricToMeshModel` uses a 3D Convolutional Neural Network (3D-CNN) backbone followed by fully connected layers for regression. Key features:
-- **3D-CNN Layers**: Extract spatial features from volumetric data.
-- **Fully Connected Layers**: Map latent features to 3D vertex predictions.
-
-### 3. Training
-- Loss Function: Mean Squared Error (MSE) between predicted and ground truth mesh vertices. The lower the value is, the better. 
-- Optimizer: Adam with a learning rate of 1e-4.
-- Training Process:
-  - Input: Preprocessed volumetric images.
-  - Target: Corresponding 3D mesh vertices.
-
-### 4. Evaluation
-- **Metrics**:
-  - **Chamfer Distance**: Measures the average distance between predicted and ground truth point clouds.
-  - **Hausdorff Distance**: Measures the maximum distance between the two point clouds.
+1. **Why Direct Coordinate Regression Fails:** Analyze the representation bottlenecks of compressing 3D volumes into flat feature vectors (e.g., via global pooling) and regressing unordered vertex arrays with non-geometric loss functions (MSE).
+2. **Re-implementation of SMRVIS:** Provide an independent, reproducible re-implementation of the slice-based 2.5D segmentation approach proposed by Tang ([arXiv:2306.04668](https://arxiv.org/abs/2306.04668)), testing the impact of mask dilation, slice selection, and loss formulations (BCE/Focal vs. Dice).
+3. **3D vs. 2.5D Volumetric Modeling:** Compare 2.5D slice-triplet models against full 3D convolutional segmenters under identical evaluation constraints.
+4. **Controlled Synthetic Benchmark (`NDT-Pipe3D`):** Provide a reproducible, open-source parametric pipe generator paired with acoustic artifact modeling (speckle noise, attenuation, beam blur) with exact ground-truth surfaces.
 
 ---
 
-## Instructions
+## 📐 Evaluation Protocol
 
-### 1. Dataset directory
-Make sure that the training and testing folder are in the same root directory as README.md and Report.ipynb.
+All models are evaluated under a unified, unit-tested protocol in physical millimeter space:
 
-### 2. Training
-Run the training script to preprocess data and train the model:
-```bash
-python harry_model.py
+- **Protocol Chamfer Distance ($\text{CD}^2$):** Kept in squared distance form following the CVPR challenge protocol (10,000 points sampled per cloud) for direct comparability with published literature.
+- **Physical Chamfer Distance ($\text{CD}$):** Unsquared L1 and L2 point set distances in millimeters.
+- **Direct Hausdorff & HD95:** Maximum and 95th-percentile surface error in millimeters.
+- **Surface $F_1$-Score at threshold $\tau$ ($F_1(\tau)$):** Harmonic mean of precision and recall at calibrated physical tolerances (e.g., $\tau \in \{1\text{mm}, 2\text{mm}, 5\text{mm}\}$).
+
+*Note: All distance metrics operate on area-uniform point cloud samples in physical coordinates without per-sample scale normalization.*
+
+---
+
+## 📁 Repository Structure
+
 ```
-This will save the trained model as `volumetric_to_mesh_model.keras` in the `source/` directory.
-
-### 3. Evaluation
-Run the evaluation script to compute Chamfer and Hausdorff distances:
-```bash
-python model_eval.py
-```
-Ensure the `testing/` directory contains the volumetric and mesh files for testing.
-
-### 4. Report
-The project includes a Jupyter notebook report (`report.ipynb`) documenting the methodology, results, and analysis. To view the report:
-```bash
-jupyter notebook report.ipynb
+deepview/
+├── .github/workflows/   # CI test & lint pipelines, CodeQL security analysis
+├── configs/             # Experiment, model, and dataset configurations (YAML)
+│   ├── dataset/
+│   ├── experiment/
+│   └── model/
+├── docs/                # Architecture, data policies, decisions, and plans
+├── results/             # Run records, evaluated point clouds, and metrics
+├── scripts/             # CLI entrypoints for data generation, training, and evaluation
+├── src/deepview/        # Core deepview Python package
+│   ├── data/            # Synthetic generator, IO loaders, and preprocessing
+│   ├── evaluation/      # Evaluation runner, threshold selection, and reporting
+│   ├── geometry/        # Pure metric functions (Chamfer, HD95, F1), affine transforms
+│   ├── models/          # 2.5D slice segmenters, 3D U-Nets, and baseline regressors
+│   └── training/        # PyTorch training loops, loss functions, and schedulers
+└── tests/               # Comprehensive pytest test suite
+    ├── conftest.py      # Deterministic fixtures
+    ├── known_answer/    # Analytical ground-truth tests for metrics
+    ├── smoke/           # Fast CPU end-to-end integration tests
+    └── unit/            # Isolated component tests
 ```
 
 ---
 
-## Requirements
-- Python 
-- TensorFlow 
-- NumPy
-- SciPy
-- trimesh
-- ParaView (optional, for visualization)
+## ⚡ Quickstart
+
+This project uses [`uv`](https://docs.astral.sh/uv/) for deterministic, high-speed dependency management and virtual environments.
+
+### 1. Clone & Setup Environment
+
+```bash
+git clone https://github.com/donaldng05/deepview.git
+cd deepview
+
+# Create isolated .venv and install all dependencies (including dev and viz tools)
+uv sync --all-extras
+```
+
+### 2. Run Quality Checks & Tests
+
+```bash
+# Run test suite
+uv run pytest
+
+# Run linting and formatting checks
+uv run ruff check src tests scripts
+uv run ruff format --check src tests scripts
+
+# Run static type checking
+uv run mypy src
+```
+
+Convenience targets are also available via the `Makefile` (`make sync`, `make test`, `make lint`, `make format`).
 
 ---
 
-## Acknowledgments
-This project is part of a computer vision competition jointly organized by DarkVision and the UBC Data Science Club. Special thanks to both organizations for fostering innovation and providing the resources to tackle challenging problems in 3D modeling and machine learning.
+## 🔒 Data Policy & Hygiene
+
+- **No Restricted Data:** In accordance with the original competition guidelines, proprietary challenge ultrasound volumes (`.raw`) and reference meshes (`.ply`) are **not** distributed in this repository.
+- **Reproducible Science:** All experiments, benchmarks, and baseline comparisons are conducted using the fully open-source, procedural `NDT-Pipe3D` generator.
+- **Run Record Traceability:** All published metric tables and plots trace directly to immutable, versioned run records stored in `results/`.
+
+---
+
+## 📚 References & Acknowledgments
+
+- **SMRVIS Reference:** Tang, L. Y. W. (2023). *SMRVIS: Point cloud extraction from 3-D ultrasound for non-destructive testing.* [arXiv:2306.04668](https://arxiv.org/abs/2306.04668).
+- **Challenge Host:** DarkVision Technologies & CVPR 2023 Workshop on Deep Learning in Ultrasound Image Analysis.
+- **Original Hackathon:** UBC Data Science Club Hackathon (Team BOOST).
